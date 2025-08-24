@@ -9,145 +9,180 @@ type Item = {
   category: string | null;
   color: string | null;
   size: string | null;
-  created_at: string;
+  created_at?: string;
 };
 
 export default function Home() {
+  // form state
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<"Üst" | "Alt" | "Aksesuar" | "Ayakkabı" | "Dış Giyim">("Üst");
+  const [color, setColor] = useState("Mavi");
+  const [size, setSize] = useState("M");
+
+  // liste & durumlar
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Form state
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState("Üst");
-  const [color, setColor] = useState("Mavi");
-  const [size, setSize] = useState("M");
+  // **düzenleme modu**
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const fetchItems = async () => {
+  const resetForm = () => {
+    setName("");
+    setCategory("Üst");
+    setColor("Mavi");
+    setSize("M");
+    setEditingId(null);
+  };
+
+  async function fetchItems() {
     setLoading(true);
     setError(null);
     const { data, error } = await supabase
       .from("items")
       .select("*")
       .order("created_at", { ascending: false });
+
     if (error) setError(error.message);
-    else setItems(data as Item[]);
+    setItems(data ?? []);
     setLoading(false);
-  };
+  }
 
   useEffect(() => {
     fetchItems();
   }, []);
 
-  const addItem = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
-      setError("İsim zorunlu.");
+    // update modunda mı?
+    if (editingId) {
+      const { error } = await supabase
+        .from("items")
+        .update({ name, category, color, size })
+        .eq("id", editingId);
+
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      await fetchItems();
+      resetForm();
       return;
     }
 
+    // değilse ekleme
     const { error } = await supabase
       .from("items")
       .insert([{ name, category, color, size }]);
 
-    if (error) setError(error.message);
-    else {
-      setName("");
-      await fetchItems(); // listeyi yenile
+    if (error) {
+      setError(error.message);
+      return;
     }
-  };
+    await fetchItems();
+    resetForm();
+  }
 
-  const deleteItem = async (id: string) => {
+  async function handleDelete(id: string) {
     const { error } = await supabase.from("items").delete().eq("id", id);
-    if (error) setError(error.message);
-    else setItems((prev) => prev.filter((i) => i.id !== id));
-  };
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setItems((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  function startEdit(item: Item) {
+    setEditingId(item.id);
+    setName(item.name);
+    setCategory((item.category as any) ?? "Üst");
+    setColor(item.color ?? "Mavi");
+    setSize(item.size ?? "M");
+  }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-2xl font-semibold mb-6">NeGiYSem – Closet</h1>
+    <main style={{ maxWidth: 980, margin: "40px auto", padding: "0 16px", fontFamily: "system-ui" }}>
+      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 6 }}>NeGiYSem – Closet</h1>
 
-      {/* Env check */}
-      <p className="text-xs opacity-60 mb-4">
-        Env check → URL:{" "}
-        {process.env.NEXT_PUBLIC_SUPABASE_URL ? "OK" : "MISSING"} • ANON:{" "}
-        {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "OK" : "MISSING"}
+      <p style={{ fontSize: 12, opacity: 0.6, marginBottom: 20 }}>
+        Env check → URL: {Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) ? "OK" : "MISSING"} •
+        {" "}ANON: {Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ? "OK" : "MISSING"}
       </p>
 
-      {/* Add form */}
-      <form
-        onSubmit={addItem}
-        className="mb-8 grid grid-cols-1 sm:grid-cols-5 gap-2"
-      >
+      <form onSubmit={handleSubmit} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: 12 }}>
         <input
-          className="border rounded px-3 py-2"
           placeholder="İsim (örn: Mavi gömlek)"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          required
+          style={input}
         />
-        <select
-          className="border rounded px-3 py-2"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
+
+        <select value={category} onChange={(e) => setCategory(e.target.value as any)} style={input}>
           <option>Üst</option>
           <option>Alt</option>
-          <option>Dış</option>
           <option>Aksesuar</option>
+          <option>Ayakkabı</option>
+          <option>Dış Giyim</option>
         </select>
+
+        <select value={color} onChange={(e) => setColor(e.target.value)} style={input}>
+          <option>Mavi</option>
+          <option>Siyah</option>
+          <option>Beyaz</option>
+          <option>Kırmızı</option>
+          <option>Yeşil</option>
+          <option>Gri</option>
+        </select>
+
         <input
-          className="border rounded px-3 py-2"
-          placeholder="Renk"
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-        />
-        <input
-          className="border rounded px-3 py-2"
           placeholder="Beden"
           value={size}
           onChange={(e) => setSize(e.target.value)}
+          style={input}
         />
-        <button
-          type="submit"
-          className="bg-black text-white rounded px-3 py-2"
-        >
-          Ekle
-        </button>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="submit" style={buttonPrimary}>
+            {editingId ? "Güncelle" : "Ekle"}
+          </button>
+          {editingId && (
+            <button type="button" onClick={resetForm} style={buttonGhost}>
+              İptal
+            </button>
+          )}
+        </div>
       </form>
 
       {error && (
-        <div className="mb-4 rounded border border-red-300 bg-red-50 p-2 text-sm text-red-700">
-          {error}
-        </div>
+        <p style={{ color: "crimson", marginTop: 10 }}>Hata: {error}</p>
       )}
 
-      {/* List */}
       {loading ? (
-        <p>Yükleniyor…</p>
+        <p style={{ opacity: 0.6, marginTop: 20 }}>Yükleniyor…</p>
       ) : items.length === 0 ? (
-        <p>Henüz ürün yok.</p>
+        <p style={{ opacity: 0.6, marginTop: 20 }}>Henüz ürün yok.</p>
       ) : (
-        <ul className="space-y-2">
-          {items.map((it) => (
-            <li
-              key={it.id}
-              className="flex items-center justify-between rounded border px-4 py-3"
-            >
+        <ul style={{ listStyle: "none", padding: 0, marginTop: 20 }}>
+          {items.map((item) => (
+            <li key={item.id} style={listItem}>
               <div>
-                <div className="font-medium">{it.name}</div>
-                <div className="text-sm opacity-70">
-                  ({it.category ?? "-"}, {it.color ?? "-"}, {it.size ?? "-"})
+                <div style={{ fontWeight: 600 }}>{item.name}</div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>
+                  ({item.category ?? "—"}, {item.color ?? "—"}, {item.size ?? "—"})
                 </div>
               </div>
-              <button
-                onClick={() => deleteItem(it.id)}
-                className="text-sm text-red-600 hover:underline"
-                title="Sil"
-              >
-                Sil
-              </button>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => startEdit(item)} style={buttonLink}>
+                  Düzenle
+                </button>
+                <button onClick={() => handleDelete(item.id)} style={{ ...buttonLink, color: "crimson" }}>
+                  Sil
+                </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -155,3 +190,50 @@ export default function Home() {
     </main>
   );
 }
+
+/** ——— küçük stiller ——— */
+const input: React.CSSProperties = {
+  height: 42,
+  padding: "0 12px",
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  outline: "none",
+};
+
+const buttonPrimary: React.CSSProperties = {
+  height: 42,
+  padding: "0 16px",
+  borderRadius: 8,
+  background: "black",
+  color: "white",
+  border: "none",
+  cursor: "pointer",
+};
+
+const buttonGhost: React.CSSProperties = {
+  height: 42,
+  padding: "0 16px",
+  borderRadius: 8,
+  border: "1px solid #e5e7eb",
+  background: "white",
+  cursor: "pointer",
+};
+
+const listItem: React.CSSProperties = {
+  border: "1px solid #e5e7eb",
+  borderRadius: 12,
+  padding: 14,
+  marginBottom: 10,
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+const buttonLink: React.CSSProperties = {
+  background: "transparent",
+  border: "none",
+  color: "#0f62fe",
+  cursor: "pointer",
+  padding: 0,
+  fontSize: 14,
+};
