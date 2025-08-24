@@ -21,6 +21,7 @@ export default function Home() {
         .from("items")
         .select("*")
         .order("created_at", { ascending: false });
+
       if (error) setError(error.message);
       setItems(data || []);
       setLoading(false);
@@ -30,19 +31,26 @@ export default function Home() {
   return (
     <main style={{ maxWidth: 720, margin: "24px auto", padding: "0 16px", fontFamily: "system-ui" }}>
       <h1>NeGiYsem – Closet</h1>
-      {loading && <p>Yükleniyor…</p>}
+      {loading && <p>Yükleniyor...</p>}
       {error && <p style={{ color: "crimson" }}>Hata: {error}</p>}
-      {!loading && !items.length && <p>Henüz ürün yok.</p>}
+      {!loading && items.length === 0 && <p>Henüz ürün yok.</p>}
+
       <ul style={{ listStyle: "none", padding: 0 }}>
         {items.map((it) => (
-          <li key={it.id} style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 8 }}>
-            <b>{it.name}</b>
-            <div style={{ color: "#6b7280", fontSize: 12 }}>
-              {[it.category, it.color, it.size].filter(Boolean).join(" • ")}
-            </div>
+          <li
+            key={it.id}
+            style={{ border: "1px solid #e5e7eb", borderRadius: 12, padding: 12, marginBottom: 8 }}
+          >
+            <strong>{it.name}</strong> ({it.category}, {it.color}, {it.size})
           </li>
         ))}
       </ul>
+
+      {/* Debug için env check */}
+      <p style={{ fontSize: 12, opacity: 0.6 }}>
+        Env check → URL: {Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) ? "OK" : "MISSING"} •
+        ANON: {Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ? "OK" : "MISSING"}
+      </p>
     </main>
   );
 }
